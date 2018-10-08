@@ -11,5 +11,5 @@
 
   {maintainers, []},
   {licenses, ["Apache 2.0"]},
-  {links, []}
+  {links, [{"Github", "https://github.com/velimir0xff/spellerl"}]}
  ]}.

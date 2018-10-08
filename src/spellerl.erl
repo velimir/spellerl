@@ -1,38 +1,44 @@
 -module(spellerl).
 
-%% TODO: remove from here
--include_lib("eunit/include/eunit.hrl").
-
 %% API exports
 -export([spell/1]).
 
 %% Public types
--export_type([object/0, result/0]).
+-export_type([input_object/0, result/0, ok/0, error/0, error_reasons/0]).
 
 %%====================================================================
 %% Types
 %%====================================================================
 
--type object() :: int().
--type int() :: 1..1000.
+-type input_object() :: any().
+-type int() :: integer().
 
 -type result() :: ok() | error().
 
--type ok() :: {ok, string()}.
+-type ok() :: {ok, binary()}.
 
--type error() :: bad_type_error() | int_error().
--type bad_type_error() :: {error, bad_type}.
+-type error() :: error(error_reasons()).
+-type error(Reason) :: {error, Reason}.
 
--type int_error() :: out_of_range_error() | negative_error().
--type negative_error() :: {error, negative}.
--type out_of_range_error() :: {error, unknown_scale}.
+-type error_reasons() :: bad_type_error_reason() | int_error_reason().
+
+-type bad_type_error_reason() :: bad_type.
+
+-type int_error() :: error(int_error_reason()).
+-type int_error_reason() :: negative_error_reason()
+                          | unknown_scale_error_reason().
+-type negative_error_reason() :: negative.
+-type unknown_scale_error_reason() :: unknown_scale.
 
 %%====================================================================
 %% API functions
 %%====================================================================
 
--spec spell(object()) -> result().
-
+-spec spell(input_object()) -> result().
+%%--------------------------------------------------------------------
+%% @doc returns the grammatically correct English phrase for a given a
+%% number
+%%--------------------------------------------------------------------
 spell(Int) when is_integer(Int) ->
     spell_int(Int);
 spell(_Else) ->
@@ -43,7 +49,6 @@ spell(_Else) ->
 %%====================================================================
 
 -spec spell_int(int()) -> ok() | int_error().
-%% TODO: docs
 spell_int(Int) when Int < 0 ->
     {error, negative};
 spell_int(Int)  ->
@@ -52,12 +57,12 @@ spell_int(Int)  ->
             Scale = trunc(math:log10(ScaleFloor)),
             case scale_name(Scale) of
                 {ok, _Name} ->
-                    spell_int(Int, ScaleFloor);
+                    {ok, spell_int(Int, ScaleFloor)};
                 {error, not_found} ->
                     {error, unknown_scale}
             end;
         ScaleFloor ->
-            spell_int(Int, ScaleFloor)
+            {ok, spell_int(Int, ScaleFloor)}
     end.
 
 scale_floor(Int) when Int < 1000 ->
@@ -188,6 +193,8 @@ scale_name(_Scale) -> {error, not_found}.
 
 -ifdef(EUNIT).
 
+-include_lib("eunit/include/eunit.hrl").
+
 pow_test_() ->
     [
      ?_assertEqual(1, pow(1, 0)),
@@ -241,18 +248,18 @@ scale_floor_test_() ->
 
 spell_int_test_() ->
     [
-     ?_assertEqual(<<"zero">>, spell_int(0)),
-     ?_assertEqual(<<"one thousand">>, spell_int(1000)),
-     ?_assertEqual(<<"twenty-eight thousand, one hundred and twenty-three">>,
+     ?_assertEqual({ok, <<"zero">>}, spell_int(0)),
+     ?_assertEqual({ok, <<"one thousand">>}, spell_int(1000)),
+     ?_assertEqual({ok, <<"twenty-eight thousand, one hundred and twenty-three">>},
                    spell_int(28123)),
      ?_assertEqual(
-        <<"seven million, three hundred and forty thousand, two hundred">>,
+        {ok, <<"seven million, three hundred and forty thousand, two hundred">>},
         spell_int(7340200)),
-     ?_assertEqual(<<"ninety-two million and thirty-one">>,
+     ?_assertEqual({ok, <<"ninety-two million and thirty-one">>},
                    spell_int(92000031)),
-     ?_assertEqual(<<"one trillion, ten million and twenty-three">>,
+     ?_assertEqual({ok, <<"one trillion, ten million and twenty-three">>},
                    spell_int(1000010000023)),
-     ?_assertEqual(<<"ten vigintillion, one hundred novemdecillion and eighty-nine">>,
+     ?_assertEqual({ok, <<"ten vigintillion, one hundred novemdecillion and eighty-nine">>},
                    spell_int(pow(10, 64) + pow(10, 62) + 89))
     ].
 
@@ -264,7 +271,8 @@ spell_test_() ->
      ?_assertEqual({error, bad_type}, spell(<<"binary">>)),
      ?_assertEqual({error, bad_type}, spell(1.0)),
      ?_assertEqual({error, negative}, spell(-1)),
-     ?_assertEqual({error, unknown_scale}, spell(pow(10, 68)))
+     ?_assertEqual({error, unknown_scale}, spell(pow(10, 68))),
+     ?_assertEqual({ok, <<"ten">>}, spell(10))
     ].
 
 -endif.
